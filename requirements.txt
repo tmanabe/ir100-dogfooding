@@ -1,0 +1,6 @@
+pytest
+
+# 0.2
+fastparquet
+pandas
+pyarrow
