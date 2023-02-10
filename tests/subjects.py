@@ -25,7 +25,7 @@ queries = pd.read_parquet(
 )
 
 # 0.7
-products_us = products["us" == products.product_locale]
+products_us = products["us" == products.product_locale].sort_values("product_id")
 queries_us = queries["us" == queries.product_locale]
 
 # 0.8

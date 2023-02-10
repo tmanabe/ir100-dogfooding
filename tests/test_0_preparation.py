@@ -1,5 +1,5 @@
-from subjects import products
-from subjects import queries
+from .subjects import products
+from .subjects import queries
 
 
 def test_0_4():

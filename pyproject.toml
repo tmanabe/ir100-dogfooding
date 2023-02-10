@@ -3,5 +3,5 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "ir100-dogfooding"
-version = "0.0.9"
+name = "gloves"
+version = "0.1.8"
