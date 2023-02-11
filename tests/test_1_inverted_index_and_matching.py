@@ -57,7 +57,6 @@ def test_1_4():
 def test_1_5():
     from gloves.iterator import boolean_and
 
-    global inverted_index_title
     result5 = list(
         boolean_and(
             iter(inverted_index_title["Information"]),
@@ -71,7 +70,6 @@ def test_1_5():
 def test_1_6():
     from gloves.iterator import boolean_or
 
-    global inverted_index_title
     result6 = list(
         boolean_or(
             iter(inverted_index_title["Information"]),
@@ -87,7 +85,6 @@ def test_1_7():
     from gloves.iterator import boolean_and_not
     from gloves.iterator import boolean_or
 
-    global inverted_index_title
     result7 = list(
         boolean_and_not(
             boolean_or(
@@ -119,8 +116,6 @@ def test_1_8():
 def test_1_9():
     from gloves.iterator import boolean_and_not
 
-    global inverted_index_brand
-    global inverted_index_title
     result9 = list(
         boolean_and_not(
             iter(inverted_index_title["Amazon"]),
