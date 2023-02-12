@@ -139,5 +139,5 @@ def test_7():
 def test_8():
     global K1
     K1 = 3.5
-    print('8.')
+    print("8.")
     answer7()

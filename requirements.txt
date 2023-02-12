@@ -4,3 +4,8 @@ pytest
 fastparquet
 pandas
 pyarrow
+
+# 6.
+annoy
+tensorflow-hub
+tensorflow-macos
