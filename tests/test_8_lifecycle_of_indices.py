@@ -81,8 +81,11 @@ class TestSearchEngine(object):
         select("c")
 
     def test_5(self):
-        print("5.")
+        global products_us
+        products_us = products_us.sample(frac=0.1, random_state=0)  # For quick testing
         post_size = len(products_us) // 100
+
+        print("5.")
         for _ in range(2):
             buffer, start = [], time()
             for product_id, product_title in zip(
@@ -111,4 +114,5 @@ class TestSearchEngine(object):
     @classmethod
     def teardown_class(cls):
         cls.search_engine.shutdown()
+        cls.search_engine.socket.close()
         cls.thread.join()

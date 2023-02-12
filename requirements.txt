@@ -10,5 +10,5 @@ annoy
 tensorflow-hub
 tensorflow-macos
 
-# 8.
+# 8., 9.
 requests
