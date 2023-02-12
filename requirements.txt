@@ -9,3 +9,6 @@ pyarrow
 annoy
 tensorflow-hub
 tensorflow-macos
+
+# 8.
+requests
