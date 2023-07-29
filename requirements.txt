@@ -5,6 +5,9 @@ fastparquet
 pandas
 pyarrow
 
+# 3.
+scipy
+
 # 6.
 annoy
 tensorflow-hub
