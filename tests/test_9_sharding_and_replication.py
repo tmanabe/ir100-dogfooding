@@ -7,7 +7,7 @@ from requests import get
 from requests import post
 from threading import Thread
 from time import time
-from .subjects import products_us
+from .subjects import sampled_products_us as products_us  # For quick testing
 
 import json
 
@@ -57,9 +57,7 @@ class TestRouter(object):
             print("Elapsed Time: {0} (s)".format(time() - start))
 
     def test_2(self):
-        global products_us
         global post_size
-        products_us = products_us.sample(frac=0.1, random_state=0)  # For quick testing
         post_size = len(products_us) // 100
 
         print("2.")

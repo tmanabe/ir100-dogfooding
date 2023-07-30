@@ -22,8 +22,12 @@ def test_1():
         return [calc_tf(*pair) for pair in zip(queries, product_titles)]
 
     global improved_rankings
-    improved_rankings = merged_us.assign(tf=batch_tf(merged_us["query"], merged_us["product_title"]))
-    improved_rankings.sort_values(["query_id", "tf", "product_id"], ascending=[True, False, True], inplace=True)
+    improved_rankings = merged_us.assign(
+        tf=batch_tf(merged_us["query"], merged_us["product_title"])
+    )
+    improved_rankings.sort_values(
+        ["query_id", "tf", "product_id"], ascending=[True, False, True], inplace=True
+    )
 
 
 def test_2():
@@ -63,7 +67,12 @@ def test_3():
                 if last_query_id is not None and 0 < relevant_count:
                     query_count += 1
                     total_average_precision += total_precision / relevant_count
-                last_query_id, total_precision, relevant_count, count = query_id, 0.0, 0, 0
+                last_query_id, total_precision, relevant_count, count = (
+                    query_id,
+                    0.0,
+                    0,
+                    0,
+                )
             count += 1
             if "I" != esci_label:
                 relevant_count += 1
@@ -124,8 +133,12 @@ def calc_ndcgs(dcgs, ideal_dcgs):
 
 
 def test_5():
-    ideal_rankings = merged_us.assign(gain=[ESCI_LABEL_TO_GAIN[esci_label] for esci_label in merged_us["esci_label"]])
-    ideal_rankings.sort_values(["query_id", "gain", "product_id"], ascending=[True, False, True], inplace=True)
+    ideal_rankings = merged_us.assign(
+        gain=[ESCI_LABEL_TO_GAIN[esci_label] for esci_label in merged_us["esci_label"]]
+    )
+    ideal_rankings.sort_values(
+        ["query_id", "gain", "product_id"], ascending=[True, False, True], inplace=True
+    )
     ideal_dcgs = calc_dcgs_at(10, ideal_rankings)
 
     print("5.")
