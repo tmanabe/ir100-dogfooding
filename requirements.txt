@@ -8,6 +8,9 @@ pyarrow
 # 3.
 scipy
 
+# 4.
+scikit-learn
+
 # 6.
 annoy
 tensorflow-hub

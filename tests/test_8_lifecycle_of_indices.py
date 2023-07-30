@@ -40,8 +40,8 @@ def update(json_object, verbose=True):
 class TestSearchEngine(object):
     @classmethod
     def setup_class(cls):
-        cls.search_engine = SearchEngine.init("127.0.0.1", 8080)
-        cls.thread = Thread(target=cls.search_engine.serve_forever)
+        cls.http_server = SearchEngine.init("127.0.0.1", 8080)
+        cls.thread = Thread(target=cls.http_server.serve_forever)
         cls.thread.start()
 
     def test_0(self):
@@ -113,6 +113,6 @@ class TestSearchEngine(object):
 
     @classmethod
     def teardown_class(cls):
-        cls.search_engine.shutdown()
-        cls.search_engine.socket.close()
+        cls.http_server.shutdown()
+        cls.http_server.socket.close()
         cls.thread.join()

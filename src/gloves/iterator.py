@@ -158,3 +158,72 @@ def extended_boolean_or(iterator_i, iterator_j):
                 for entry_i in iterator_i:
                     yield entry_i[0], entry_i[1], 0
                 return
+
+
+# 4.1
+def sum_count_boolean_and(iterator_i, iterator_j):
+    try:
+        entry_i = next(iterator_i)
+        entry_j = next(iterator_j)
+        while True:
+            if entry_i[0] < entry_j[0]:
+                entry_i = next(iterator_i)
+            elif entry_j[0] < entry_i[0]:
+                entry_j = next(iterator_j)
+            else:
+                yield entry_i[0], entry_i[1] + entry_j[1]
+                entry_i = next(iterator_i)
+                entry_j = next(iterator_j)
+    except StopIteration:
+        return
+
+
+# 4.7
+def sum_count_boolean_or(iterator_i, iterator_j):
+    try:
+        entry_i = next(iterator_i)
+    except StopIteration:
+        for entry_j in iterator_j:
+            yield entry_j[0], 0 + entry_j[1]
+        return
+    try:
+        entry_j = next(iterator_j)
+    except StopIteration:
+        yield entry_i[0], entry_i[1] + 0
+        for entry_i in iterator_i:
+            yield entry_i[0], entry_i[1] + 0
+        return
+    while True:
+        if entry_i[0] < entry_j[0]:
+            yield entry_i[0], entry_i[1] + 0
+            try:
+                entry_i = next(iterator_i)
+            except StopIteration:
+                yield entry_j[0], 0 + entry_j[1]
+                for entry_j in iterator_j:
+                    yield entry_j[0], 0 + entry_j[1]
+                return
+        elif entry_j[0] < entry_i[0]:
+            yield entry_j[0], 0 + entry_j[1]
+            try:
+                entry_j = next(iterator_j)
+            except StopIteration:
+                yield entry_i[0], entry_i[1] + 0
+                for entry_i in iterator_i:
+                    yield entry_i[0], entry_i[1] + 0
+                return
+        else:
+            yield entry_i[0], entry_i[1] + entry_j[1]
+            try:
+                entry_i = next(iterator_i)
+            except StopIteration:
+                for entry_j in iterator_j:
+                    yield entry_j[0], 0 + entry_j[1]
+                return
+            try:
+                entry_j = next(iterator_j)
+            except StopIteration:
+                yield entry_i[0], entry_i[1] + 0
+                for entry_i in iterator_i:
+                    yield entry_i[0], entry_i[1] + 0
+                return
