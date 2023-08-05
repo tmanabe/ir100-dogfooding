@@ -16,5 +16,10 @@ annoy
 tensorflow-hub
 tensorflow-macos
 
+# 7.
+pystemmer
+regex
+uniseg
+
 # 8., 9.
 requests
