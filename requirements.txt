@@ -11,6 +11,9 @@ scipy
 # 4.
 scikit-learn
 
+# 5.
+xgboost
+
 # 6.
 annoy
 tensorflow-hub
@@ -20,6 +23,8 @@ tensorflow-macos
 pystemmer
 regex
 uniseg
+mecab-python3
+unidic-lite
 
 # 8., 9.
 requests

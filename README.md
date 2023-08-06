@@ -22,3 +22,28 @@ git clone git@github.com:amazon-science/esci-data.git
 pip install tox
 tox
 ```
+
+## TODO
+1.
+- 1.10
+- 1.11
+- 1.12
+3.
+- 3.8
+- 3.9
+4.
+- 4.8
+- 4.9
+- 4.10
+5.
+- 5.8
+- 5.9
+6.
+- 6.8
+- 6.9
+8.
+- 8.8
+- 8.9
+9.
+- 9.8
+- 9.9

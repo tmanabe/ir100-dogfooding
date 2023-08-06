@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
 
+from MeCab import Tagger
 from gloves.nlp import english_lowercase_filter
 from gloves.nlp import english_possessive_filter
+from gloves.nlp import katakana_stem_filter
+from gloves.nlp import mecab_analyzer
+from gloves.nlp import mecab_tokenizer
 from gloves.nlp import porter_stem_filter
+from gloves.nlp import pos_filter
 from gloves.nlp import unicode_punctuation_tokenizer
 from gloves.nlp import unicode_text_segmentation_tokenizer
 from gloves.nlp import whitespace_tokenizer
 from time import time
+from .subjects import products_jp
 from .subjects import products_us
 
 
@@ -63,3 +69,39 @@ def test_5():
         for _ in unicode_text_segmentation_tokenizer(product_description):
             pass
     print("Elapsed Time: {0} (s)".format(time() - start))  # Possibly slow (~10 minutes)
+
+
+def test_6():
+    print("6.")
+    start = time()
+    for product_description in products_jp["product_description"]:
+        if product_description is None:
+            continue
+        for _ in mecab_tokenizer(product_description):
+            pass
+    print("Elapsed Time: {0} (s)".format(time() - start))
+
+    tagger = Tagger()
+    print(tagger.parse("情報検索100本ノック"))
+
+
+def test_7():
+    print("7.")
+    start = time()
+    for product_description in products_jp["product_description"]:
+        if product_description is None:
+            continue
+        for _ in pos_filter(mecab_analyzer(product_description)):
+            pass
+    print("Elapsed Time: {0} (s)".format(time() - start))
+
+
+def test_8():
+    print("8.")
+    start = time()
+    for product_description in products_jp["product_description"]:
+        if product_description is None:
+            continue
+        for _ in katakana_stem_filter(mecab_tokenizer(product_description)):
+            pass
+    print("Elapsed Time: {0} (s)".format(time() - start))
