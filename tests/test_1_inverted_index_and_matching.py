@@ -1,8 +1,13 @@
+from gloves.inverted_index import SimpleInvertedIndexBuilder
+from gloves.iterator import boolean_and
+from gloves.iterator import boolean_and_not
+from gloves.iterator import boolean_or
+from gloves.nlp import as_is_tokenizer
 from gloves.nlp import whitespace_tokenizer
 from .subjects import products_us
 
 
-def test_1_1():
+def test_01():
     global dictionary
     dictionary = {}
     for product_title in products_us["product_title"]:
@@ -14,7 +19,7 @@ def test_1_1():
     assert 912923 == len(dictionary)
 
 
-def test_1_2():
+def test_02():
     global posting_list
     posting_list = []
     for product_id, product_title in zip(
@@ -26,22 +31,19 @@ def test_1_2():
     assert 110 == len(posting_list)
 
 
-def test_1_3():
+def test_03():
     global inverted_index_title
-    inverted_index_title = {}
+    builder = SimpleInvertedIndexBuilder(whitespace_tokenizer)
     for product_id, product_title in zip(
         products_us["product_id"], products_us["product_title"]
     ):
-        for word in set(whitespace_tokenizer(product_title)):
-            if word in inverted_index_title:
-                inverted_index_title[word].append(product_id)
-            else:
-                inverted_index_title[word] = [product_id]
+        builder.add(product_id, product_title)
+    inverted_index_title = builder.build()
     assert len(dictionary) == len(inverted_index_title)
     assert posting_list == inverted_index_title["Information"]
 
 
-def test_1_4():
+def test_04():
     from pickle import dump
     from pickle import load
     from tempfile import NamedTemporaryFile
@@ -54,72 +56,118 @@ def test_1_4():
             inverted_index_title = load(f)
 
 
-def test_1_5():
-    from gloves.iterator import boolean_and
-
+def answer_05(inverted_index, verbose=False):
     result5 = list(
         boolean_and(
-            iter(inverted_index_title["Information"]),
-            iter(inverted_index_title["Science"]),
+            inverted_index.iter("Information"),
+            inverted_index.iter("Science"),
         )
     )
-    print(result5)
+    if verbose:
+        print(result5)
     assert 3 == len(result5)
 
 
-def test_1_6():
-    from gloves.iterator import boolean_or
+def test_05():
+    answer_05(inverted_index_title, True)
 
+
+def answer_06(inverted_index, verbose=False):
     result6 = list(
         boolean_or(
-            iter(inverted_index_title["Information"]),
-            iter(inverted_index_title["Retrieval"]),
+            inverted_index.iter("Information"),
+            inverted_index.iter("Retrieval"),
         )
     )
-    print(result6)
+    if verbose:
+        print(result6)
     assert 129 == len(result6)
 
 
-def test_1_7():
-    from gloves.iterator import boolean_and
-    from gloves.iterator import boolean_and_not
-    from gloves.iterator import boolean_or
+def test_06():
+    answer_06(inverted_index_title, True)
 
+
+def answer_07(inverted_index, verbose=False):
     result7 = list(
         boolean_and_not(
             boolean_or(
-                iter(inverted_index_title["Information"]),
-                iter(inverted_index_title["Retrieval"]),
+                inverted_index.iter("Information"),
+                inverted_index.iter("Retrieval"),
             ),
             boolean_and(
-                iter(inverted_index_title["Information"]),
-                iter(inverted_index_title["Science"]),
+                inverted_index.iter("Information"),
+                inverted_index.iter("Science"),
             ),
         )
     )
-    print(result7)
+    if verbose:
+        print(result7)
     assert 126 == len(result7)
 
 
-def test_1_8():
+def test_07():
+    answer_07(inverted_index_title, True)
+
+
+def test_08():
     global inverted_index_brand
-    inverted_index_brand = {}
+    builder = SimpleInvertedIndexBuilder(as_is_tokenizer)
     for product_id, product_brand in zip(
         products_us["product_id"], products_us["product_brand"]
     ):
-        if product_brand in inverted_index_brand:
-            inverted_index_brand[product_brand].append(product_id)
-        else:
-            inverted_index_brand[product_brand] = [product_id]
+        if product_brand is not None:
+            builder.add(product_id, product_brand)
+    inverted_index_brand = builder.build()
 
 
-def test_1_9():
-    from gloves.iterator import boolean_and_not
-
+def test_09():
     result9 = list(
         boolean_and_not(
-            iter(inverted_index_title["Amazon"]),
-            iter(inverted_index_brand["Amazon Basics"]),
+            inverted_index_title.iter("Amazon"),
+            inverted_index_brand.iter("Amazon Basics"),
         )
     )
     assert 8681 == len(result9)
+
+
+def test_10():
+    from gloves.inverted_index import PrefixInvertedIndexBuilder
+
+    builder = PrefixInvertedIndexBuilder(whitespace_tokenizer)
+    for product_id, product_title in zip(
+        products_us["product_id"], products_us["product_title"]
+    ):
+        builder.add(product_id, product_title)
+    inverted_index_title = builder.build()
+    answer_05(inverted_index_title)
+    answer_06(inverted_index_title)
+    answer_07(inverted_index_title)
+
+
+def test_11():
+    from gloves.inverted_index import EncodeInvertedIndexBuilder
+
+    builder = EncodeInvertedIndexBuilder(whitespace_tokenizer)
+    for product_id, product_title in zip(
+        products_us["product_id"], products_us["product_title"]
+    ):
+        builder.add(product_id, product_title)
+    inverted_index_title = builder.build()
+    answer_05(inverted_index_title)
+    answer_06(inverted_index_title)
+    answer_07(inverted_index_title)
+
+
+def test_12():
+    from gloves.inverted_index import VariableByteInvertedIndexBuilder
+
+    builder = VariableByteInvertedIndexBuilder(whitespace_tokenizer)
+    for product_id, product_title in zip(
+        products_us["product_id"], products_us["product_title"]
+    ):
+        builder.add(product_id, product_title)
+    inverted_index_title = builder.build()
+    answer_05(inverted_index_title)
+    answer_06(inverted_index_title)
+    answer_07(inverted_index_title)

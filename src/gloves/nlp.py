@@ -5,6 +5,10 @@ from regex import split
 from uniseg.wordbreak import words
 
 
+def as_is_tokenizer(string):
+    return iter([string])
+
+
 def whitespace_tokenizer(string):
     return iter(string.split())
 
