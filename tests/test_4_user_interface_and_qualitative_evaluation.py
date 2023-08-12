@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from gloves.inverted_index import ExpandedVariableByteInvertedIndexBuilder
+from gloves.nlp import whitespace_tokenizer
 from gloves.user_interface import UserInterface
 from requests import get
 from sklearn.metrics import cohen_kappa_score
@@ -26,21 +28,12 @@ def select(query, sort=None):
 class TestUserInterface(object):
     @classmethod
     def setup_class(cls):
-        inverted_index = {}  # Cf. 2.0
+        builder = ExpandedVariableByteInvertedIndexBuilder(whitespace_tokenizer)
         for product_id, product_title in zip(
             products_us["product_id"], products_us["product_title"]
         ):
-            counter = {}
-            for word in product_title.split():
-                if word in counter:
-                    counter[word] += 1
-                else:
-                    counter[word] = 1
-            for word, count in counter.items():
-                if word in inverted_index:
-                    inverted_index[word].append((product_id, count))
-                else:
-                    inverted_index[word] = [(product_id, count)]
+            builder.add(product_id, product_title)
+        inverted_index = builder.build()
 
         cls.http_server = UserInterface.init("127.0.0.1", 8080)
         UserInterface.inverted_index = inverted_index
@@ -49,22 +42,22 @@ class TestUserInterface(object):
         cls.thread = Thread(target=cls.http_server.serve_forever)
         cls.thread.start()
 
-    def test_0(self):
+    def test_00(self):
         print("0.")
         select("Information")
         select("Science")
 
-    def test_1(self):
+    def test_01(self):
         print("1.")
         select("Information Science")  # Cf. 1.5
         select("Amazon HDMI Cable")
 
-    def test_3(self):
+    def test_03(self):
         print("3.")
         select("Information", sort="tf")
         select("Amazon HDMI Cable", sort="tf")
 
-    def test_5(self):
+    def test_05(self):
         print("5.")
         annotate(2155)  # 15 ft hdmi cable
         annotate(18440)  # books on science for kids
@@ -109,15 +102,15 @@ class TestUserInterface(object):
             ],
         }
 
-    def test_6(self):
+    def test_06(self):
         print("6.")
         for query_id, my_annotation in my_annotations.items():
             their_annotation = merged_us[query_id == merged_us.query_id]["esci_label"]
             print(f"{query_id}: {cohen_kappa_score(my_annotation, their_annotation)}")
 
-    def test_7(self):
+    def test_07(self):
         print("7.")
-        select("Information OR Retrieval")  # Cf. 1.6
+        select("Information OR Retrieval", sort="tf")  # Cf. 1.6
 
     @classmethod
     def teardown_class(cls):

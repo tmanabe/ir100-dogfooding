@@ -57,15 +57,19 @@ class UserInterface(BaseHTTPRequestHandler):
                 assert 1 == len(parameters["sort"])
                 assert "tf" == parameters["sort"][0]
                 priority_queue = PriorityQueue(10)  # Cf. 2.3
-                for product_id, count in query.iterator(self.inverted_index):
+                for product_id, expansions in query.iterator(self.inverted_index):
                     product_count += 1
-                    priority_queue.push((count, product_id))
+                    priority = 0
+                    for expansion in expansions:
+                        if expansion is not None:
+                            priority += len(expansion.positions)  # == TF
+                    priority_queue.push((priority, product_id))
                 while 0 < len(priority_queue.body):
                     _, product_id = priority_queue.pop()
                     ranking.append(product_id)
-                    ranking.reverse()
+                ranking.reverse()
             else:
-                for product_id, count in query.iterator(self.inverted_index):
+                for product_id, _ in query.iterator(self.inverted_index):
                     product_count += 1
                     if len(ranking) < 10:
                         ranking.append(product_id)
@@ -80,7 +84,6 @@ class UserInterface(BaseHTTPRequestHandler):
                     }
                 )
             result["success"] = {
-                "query": query.debug_print(),
                 "product_count": product_count,
                 "products": products,
             }

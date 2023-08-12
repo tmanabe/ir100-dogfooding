@@ -151,9 +151,8 @@ class VariableByteIterator(object):
         if len(self.deltas) <= self.index:
             raise StopIteration()
         self.context += self.deltas[self.index]
-        result = self.id_list[self.context]
         self.index += 1
-        return result
+        return self.id_list[self.context]
 
 
 class VariableByteInvertedIndex(EncodeInvertedIndex):
@@ -197,3 +196,78 @@ class VariableByteInvertedIndexBuilder(EncodeInvertedIndexBuilder):
         for word in self.body:
             self.body[word] = variable_byte_encode(self.body[word])
         return super().build()
+
+
+# To use later, e.g., 4.8
+class Expansion(object):
+    __slots__ = ["positions"]
+
+    def __init__(self, first_position):
+        self.positions = [first_position]
+
+
+class Entry(object):
+    __slots__ = ["indices", "expansions"]
+
+    def __init__(self, first_index, first_expansion):
+        self.indices = [first_index]
+        self.expansions = [first_expansion]
+
+
+EMPTY_ENTRY = Entry(None, None)
+EMPTY_ENTRY.indices.clear()
+EMPTY_ENTRY.expansions.clear()
+
+
+class ExpandedVariableByteIterator(VariableByteIterator):
+    def __init__(self, entry, id_list):
+        super().__init__(entry.indices, id_list)
+        self.expansions = entry.expansions
+
+    def __next__(self):
+        if len(self.expansions) <= self.index:
+            raise StopIteration()
+        expansion = self.expansions[self.index]
+        return super().__next__(), [expansion]
+
+
+class ExpandedVariableByteInvertedIndex(VariableByteInvertedIndex):
+    def __getitem__(self, word):
+        return self.body.get(word, EMPTY_ENTRY)
+
+    def iter(self, word):
+        return ExpandedVariableByteIterator(self[word], self.id_list)
+
+
+class ExpandedVariableByteInvertedIndexBuilder(VariableByteInvertedIndexBuilder):
+    def __init__(self, tokenizer):
+        if not hasattr(self, "results"):
+            self.results = ExpandedVariableByteInvertedIndex()
+        super().__init__(tokenizer)
+
+    def add(self, id, field_value):
+        index = len(self.id_list)
+        self.id_list.append(id)
+        for position, word in enumerate(self.tokenizer(field_value)):
+            if word in self.body:
+                entry = self.body[word]
+                if index == entry.indices[-1]:
+                    entry.expansions[-1].positions.append(position)
+                else:
+                    entry.indices.append(index)
+                    entry.expansions.append(Expansion(position))
+            else:
+                self.body[word] = Entry(index, Expansion(position))
+
+    def build(self):
+        # Delta compression
+        for entry in self.body.values():
+            indices, context = entry.indices, 0
+            for index in range(len(indices)):
+                target = indices[index]
+                indices[index] = target - context
+                context = target
+        # Variable byte encoding
+        for word in self.body:
+            self.body[word].indices = variable_byte_encode(self.body[word].indices)
+        return EncodeInvertedIndexBuilder.build(self)
