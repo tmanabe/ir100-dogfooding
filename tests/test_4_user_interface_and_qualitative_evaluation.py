@@ -2,6 +2,7 @@
 
 from gloves.inverted_index import ExpandedVariableByteInvertedIndexBuilder
 from gloves.nlp import whitespace_tokenizer
+from gloves.query_parser import QueryParser
 from gloves.user_interface import UserInterface
 from requests import get
 from sklearn.metrics import cohen_kappa_score
@@ -36,6 +37,7 @@ class TestUserInterface(object):
         inverted_index = builder.build()
 
         cls.http_server = UserInterface.init("127.0.0.1", 8080)
+        UserInterface.query_parser = QueryParser(whitespace_tokenizer)
         UserInterface.inverted_index = inverted_index
         UserInterface.indexed_products_us = products_us.set_index("product_id")
         UserInterface.merged_us = merged_us
@@ -116,6 +118,11 @@ class TestUserInterface(object):
         print("9.")
         select('" Information Science "')
         select('Amazon " HDMI Cable "')
+
+    def test_10(self):
+        print("10.")
+        select("Amazon HDMI OR Cable")
+        select("Amazon ( HDMI OR Cable )")
 
     @classmethod
     def teardown_class(cls):

@@ -4,7 +4,6 @@ from argparse import ArgumentParser
 from http.server import BaseHTTPRequestHandler
 from http.server import HTTPServer
 from gloves.priority_queue import PriorityQueue
-from gloves.query import parse
 from socketserver import ThreadingMixIn
 from urllib.parse import parse_qs
 from urllib.parse import urlparse
@@ -19,6 +18,7 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
 class UserInterface(BaseHTTPRequestHandler):
     @classmethod
     def init(cls, host, port):
+        cls.query_parser = None
         cls.inverted_index = {}
         cls.indexed_products_us = None
         cls.merged_us = None
@@ -51,7 +51,7 @@ class UserInterface(BaseHTTPRequestHandler):
 
         elif self.path.startswith("/select"):
             assert 1 == len(parameters["query"])
-            query = parse(parameters["query"][0])
+            query = self.query_parser.parse(parameters["query"][0])
             product_count, ranking = 0, []
             if "sort" in parameters:  # 4.2
                 assert 1 == len(parameters["sort"])
