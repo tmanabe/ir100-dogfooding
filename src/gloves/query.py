@@ -34,13 +34,60 @@ class BooleanOrQuery(object):
         return expanded_boolean_or(iterator_i, iterator_j)
 
 
+# 4.9
+def phrase_match(pair):
+    _, expansions = pair
+    indices = [0] * (len(expansions) - 1)
+    for start in expansions[0].positions:
+        success = True
+        for offset, expansion in enumerate(expansions[1:]):
+            target = start + offset + 1
+            while expansion.positions[indices[offset]] < target:
+                indices[offset] += 1
+                if len(expansion.positions) <= indices[offset]:
+                    return False
+            if target < expansion.positions[indices[offset]]:
+                success = False
+                break
+        if success:
+            return True
+    return False
+
+
+class PhraseQuery(object):
+    def __init__(self, boolean_and_query):
+        self.boolean_and_query = boolean_and_query
+
+    def iterator(self, inverted_index):
+        return filter(phrase_match, self.boolean_and_query.iterator(inverted_index))
+
+
 def parse_and(and_term):
     result = None
+    in_phrase, in_phrase_result = False, None
     for word in and_term.split():
-        if result is None:
-            result = WordQuery(word)
+        if '"' == word:
+            if in_phrase:
+                assert isinstance(in_phrase_result, BooleanAndQuery)  # means multiple words in the phrase
+                if result is None:
+                    result = PhraseQuery(in_phrase_result)
+                else:
+                    result = BooleanAndQuery(result, PhraseQuery(in_phrase_result))
+                in_phrase, in_phrase_result = False, None
+            else:
+                in_phrase = True
         else:
-            result = BooleanAndQuery(result, WordQuery(word))
+            if in_phrase:
+                if in_phrase_result is None:
+                    in_phrase_result = WordQuery(word)
+                else:
+                    in_phrase_result = BooleanAndQuery(in_phrase_result, WordQuery(word))
+            else:
+                if result is None:
+                    result = WordQuery(word)
+                else:
+                    result = BooleanAndQuery(result, WordQuery(word))
+    assert not in_phrase and in_phrase_result is None
     return result
 
 

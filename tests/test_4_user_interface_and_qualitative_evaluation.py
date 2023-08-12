@@ -112,6 +112,11 @@ class TestUserInterface(object):
         print("7.")
         select("Information OR Retrieval", sort="tf")  # Cf. 1.6
 
+    def test_09(self):  # Cf. 4.1
+        print("9.")
+        select('" Information Science "')
+        select('Amazon " HDMI Cable "')
+
     @classmethod
     def teardown_class(cls):
         cls.http_server.shutdown()
