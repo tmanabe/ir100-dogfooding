@@ -29,5 +29,6 @@ def calc_ndcgs(dcgs, ideal_dcgs):
     assert len(dcgs) == len(ideal_dcgs)
     ndcgs = []
     for dcg, ideal_dcg in zip(dcgs, ideal_dcgs):
-        ndcgs.append(dcg / ideal_dcg)
+        if 0 < ideal_dcg:
+            ndcgs.append(dcg / ideal_dcg)
     return ndcgs

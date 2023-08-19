@@ -1,9 +1,13 @@
+from gloves.scoring import idf
 from scipy.stats import binomtest
+from scipy.stats import kstest
+from scipy.stats import norm
 from scipy.stats import ttest_rel
 from .ndcg import ESCI_LABEL_TO_GAIN
 from .ndcg import calc_dcgs_at
 from .ndcg import calc_ndcgs
 from .subjects import merged_us
+from .subjects import products_us
 
 
 def test_0():
@@ -109,6 +113,7 @@ def test_5():
     ideal_rankings.sort_values(
         ["query_id", "gain", "product_id"], ascending=[True, False, True], inplace=True
     )
+    global ideal_dcgs
     ideal_dcgs = calc_dcgs_at(10, ideal_rankings)
 
     print("5.")
@@ -137,3 +142,77 @@ def test_6():
 def test_7():
     print("7.")
     print(ttest_rel(improved_ndcgs, baseline_ndcgs))
+
+
+def test_8():
+    def calc_df(product_title, results):
+        for word in set(product_title.split()):
+            if word in results:
+                results[word] += 1
+            else:
+                results[word] = 1
+
+    def batch_idf(product_titles):
+        results = {}
+        for product_title in product_titles:
+            calc_df(product_title, results)
+        N = len(product_titles)
+        results = {word: idf(N, n) for word, n in results.items()}
+        return results, idf(N, 0)
+
+    def calc_tfidf(query, product_title, idfs, default_idf):
+        tfs = {}
+        for word in product_title.split():
+            if word in tfs:
+                tfs[word] += 1
+            else:
+                tfs[word] = 1
+        tfidf = 0.0
+        for keyword in set(query.split()):
+            if keyword in tfs:
+                tfidf += tfs[keyword] * idfs.get(keyword, default_idf)
+        return tfidf
+
+    def batch_tfidf(queries, product_titles, idfs, default_idf):
+        return [
+            calc_tfidf(query, product_title, idfs, default_idf)
+            for query, product_title in zip(queries, product_titles)
+        ]
+
+    def bonferroni_correct(p, m):
+        return p * m * (m - 1) / 2
+
+    idfs, default_idf = batch_idf(products_us["product_title"])
+    global re_improved_rankings
+    re_improved_rankings = merged_us.assign(
+        tfidf=batch_tfidf(
+            merged_us["query"], merged_us["product_title"], idfs, default_idf
+        )
+    )
+    re_improved_rankings.sort_values(
+        ["query_id", "tfidf", "product_id"], ascending=[True, False, True], inplace=True
+    )
+
+    print("8.")
+    re_improved_dcgs = calc_dcgs_at(10, re_improved_rankings)
+    re_improved_ndcgs = calc_ndcgs(re_improved_dcgs, ideal_dcgs)
+    print(f"Re-improved: {sum(re_improved_ndcgs) / len(re_improved_ndcgs)}")
+
+    result = ttest_rel(improved_ndcgs, baseline_ndcgs)
+    print(
+        f"Improved    vs. Baseline: {result} -> {bonferroni_correct(result.pvalue, 3)}"
+    )
+    result = ttest_rel(re_improved_ndcgs, baseline_ndcgs)
+    print(
+        f"Re-improved vs. Baseline: {result} -> {bonferroni_correct(result.pvalue, 3)}"
+    )
+    result = ttest_rel(re_improved_ndcgs, improved_ndcgs)
+    print(
+        f"Re-improved vs. Improved: {result} -> {bonferroni_correct(result.pvalue, 3)}"
+    )
+
+
+def test_9():
+    print("9.")
+    print(kstest(baseline_ndcgs, norm.cdf))
+    print(kstest(improved_ndcgs, norm.cdf))
