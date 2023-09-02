@@ -13,6 +13,9 @@ scikit-learn
 
 # 5.
 xgboost
+datasets
+transformers[torch]
+sentence_transformers
 
 # 6.
 annoy

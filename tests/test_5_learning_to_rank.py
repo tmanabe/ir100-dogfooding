@@ -200,7 +200,7 @@ def test_5():
     eval_xgb_ranker(xgb_ranker, FEATURES)
 
 
-def answer6(xgb_ranker, features):
+def answer_6(xgb_ranker, features):
     xgb_ranker.fit(
         merged_us_train_train[features],
         merged_us_train_train["esci_label"].map(ESCI_LABEL_TO_GAIN),
@@ -230,7 +230,7 @@ def test_6():
         objective="rank:ndcg",
         learning_rate=0.03,
     )
-    answer6(xgb_ranker, FEATURES)
+    answer_6(xgb_ranker, FEATURES)
     eval_xgb_ranker(xgb_ranker, FEATURES)
 
     # For 7.
@@ -253,5 +253,98 @@ def test_7():
         objective="rank:ndcg",
         learning_rate=0.03,
     )
-    answer6(xgb_ranker, IMPORTANT_FEATURES)
+    answer_6(xgb_ranker, IMPORTANT_FEATURES)
     eval_xgb_ranker(xgb_ranker, IMPORTANT_FEATURES)
+
+
+SEP, MASK = "[SEP]", "[MASK]"
+
+
+def test_8():
+    lines = []
+    for query, product_title in zip(
+        merged_us_test["query"],
+        merged_us_test["product_title"],
+    ):
+        lines.append(" ".join([MASK, SEP, query, SEP, product_title]))
+
+    from transformers import pipeline
+
+    fill_mask = pipeline(
+        "fill-mask",
+        model="tmanabe/ir100-dogfooding-bert",
+        device="mps",
+    )
+
+    from torch.utils.data import Dataset
+
+    class ListDataset(Dataset):
+        def __init__(self, body):
+            self.body = body
+
+        def __len__(self):
+            return len(self.body)
+
+        def __getitem__(self, i):
+            return self.body[i]
+
+    dataset = ListDataset(lines)
+
+    from tqdm.auto import tqdm
+
+    def get_penalty(output):
+        min_score = 1.0
+        for d in output:
+            if "I" == d["token_str"]:
+                return d["score"]  # Score of "I" (irrelevant) == penalty
+            if d["score"] < min_score:
+                min_score = d["score"]
+        return min_score  # or less
+
+    penalties = []
+    for output in tqdm(fill_mask(dataset, batch_size=16), total=len(dataset)):
+        penalties.append(get_penalty(output))
+    merged_us_test["penalty"] = penalties
+    penalty_rankings = merged_us_test.sort_values(["query_id", "penalty", "product_id"])
+    penalty_ndcgs = calc_ndcgs(
+        calc_dcgs_at(10, penalty_rankings),
+        calc_dcgs_at(10, ideal_rankings),
+    )
+    print("8.")
+    print(f"BERT: {sum(penalty_ndcgs) / len(penalty_ndcgs)}")
+
+
+def test_9():
+    from sentence_transformers import SentenceTransformer
+
+    model = SentenceTransformer("tmanabe/ir100-dogfooding-siamese", device="mps")
+    titles = model.encode(
+        merged_us_test["product_title"].tolist(), batch_size=16, show_progress_bar=True
+    )
+    queries = merged_us_test["query"].tolist()
+    unique_queries = list(set(queries))
+    unique_queries = {
+        string: embedding
+        for string, embedding in zip(
+            unique_queries,
+            model.encode(unique_queries, batch_size=16, show_progress_bar=True),
+        )
+    }
+    queries = [unique_queries[string] for string in queries]
+
+    from numpy import dot
+    from numpy.linalg import norm
+
+    dot_products = []
+    for title, query in zip(titles, queries):
+        dot_products.append(dot(title, query) / (norm(title) * norm(query)))
+    merged_us_test["dot_product"] = dot_products
+    dot_product_rankings = merged_us_test.sort_values(
+        ["query_id", "dot_product", "product_id"], ascending=[True, False, True]
+    )
+    dot_product_ndcgs = calc_ndcgs(
+        calc_dcgs_at(10, dot_product_rankings),
+        calc_dcgs_at(10, ideal_rankings),
+    )
+    print("9.")
+    print(f"Siamese BERT: {sum(dot_product_ndcgs) / len(dot_product_ndcgs)}")
