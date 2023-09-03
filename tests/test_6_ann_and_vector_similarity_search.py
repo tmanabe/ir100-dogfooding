@@ -1,180 +1,188 @@
-from annoy import AnnoyIndex
+from gloves.ann import ANNInvertedIndexBuilder
+from gloves.ann import BatchAnnoyIndexBuilder
+from gloves.ann import BatchRankingBuilder
+from gloves.ann import annoy_filter_factory
+from gloves.ann import as_is_batch_tokenizer
+from gloves.ann import use_batch_tokenizer
+from gloves.iterator import boolean_or
+from sklearn.cluster import KMeans
+from time import time
 
-from gloves.ann import dot_product
-from gloves.ann import embed
-from gloves.priority_queue import PriorityQueue
-from .subjects import products_us
-
-import tensorflow_hub as hub
+from .subjects import sampled_products_us as products_us
 
 
 def test_0():
     print("0.")
-    embed = hub.load("https://tfhub.dev/google/universal-sentence-encoder/4")
-    embeddings = embed(
-        [
-            "The quick brown fox jumps over the lazy dog.",
-            "I am a sentence for which I would like to get its embedding",
-        ]
+    print(
+        use_batch_tokenizer(
+            [
+                "The quick brown fox jumps over the lazy dog.",
+                "I am a sentence for which I would like to get its embedding",
+            ]
+        )
     )
-    print(embeddings)
+
+
+# 1.
+QUERIES = ["Information Science", "HDMI Cable"]
+QUERY_VECTORS = use_batch_tokenizer(QUERIES)
+assert len(QUERIES) == len(QUERY_VECTORS)
 
 
 def test_1():
     print("1.")
-    global queries, query_vectors
-    queries = ["Information Science", "HDMI Cable"]
-    query_vectors = embed(queries)
-    print(queries)
-    print(query_vectors)
+    print(QUERIES)
+    print(QUERY_VECTORS)
 
 
-def batch_push(buffer_title, buffer_id, query_vectors, priority_queues):
-    product_vectors = embed(buffer_title)
-    for product_id, priorities in zip(
-        buffer_id, dot_product(product_vectors, query_vectors)
-    ):
-        for priority_queue, priority in zip(priority_queues, priorities):
-            priority_queue.push((priority.numpy(), product_id))
-    del buffer_title[:]
-    del buffer_id[:]
+# 2.
+K = 10
+
+
+products_us = products_us.set_index("product_id", drop=False)
+products_us.sort_index(inplace=True)
+
+
+def print_rankings(rankings):
+    assert len(QUERIES) == len(rankings)
+    for query, ranking in zip(QUERIES, rankings):
+        print(query)
+        for priority, product_id in ranking:
+            print(priority, product_id, products_us.at[product_id, "product_title"])
 
 
 def test_2():
     print("2.")
-    global products_us
-    products_us = products_us.set_index("product_id", drop=False).sample(
-        frac=0.1, random_state=0
-    )
-
-    global buffer_id, buffer_title, batch_size
-    priority_queues, buffer_id, buffer_title, batch_size = (
-        [],
-        [],
-        [],
-        len(products_us) ** 0.5,
-    )
-    for _ in query_vectors:
-        priority_queues.append(PriorityQueue(10))
+    batch_ranking_builder = BatchRankingBuilder(QUERIES, len(QUERIES) * [K])
     for product_id, product_title in zip(
         products_us["product_id"], products_us["product_title"]
     ):
-        buffer_id.append(product_id)
-        buffer_title.append(product_title)
-        if batch_size < len(buffer_id):
-            batch_push(buffer_title, buffer_id, query_vectors, priority_queues)
-    if 0 < len(buffer_id):
-        batch_push(buffer_title, buffer_id, query_vectors, priority_queues)
+        batch_ranking_builder.add(product_id, product_title)
 
-    global exact_rankings
-    exact_rankings = []  # For 7.
-    for query, priority_queue in zip(queries, priority_queues):
-        print(query)
-        exact_rankings.append([])
-        while 0 < len(priority_queue.body):
-            priority, product_id = priority_queue.pop()
-            print(priority, product_id, products_us.at[product_id, "product_title"])
-            exact_rankings[-1].append(product_id)
+    global exact_rankings  # For 7.
+    exact_rankings = batch_ranking_builder.build()
+    print_rankings(exact_rankings)
+
+
+# 3.
+METRIC = "euclidean"
+N_TREES = 10
 
 
 def test_3():
     print("3.")
-    product_ids, annoy_index = [], AnnoyIndex(512, "euclidean")
-
-    def batch_add_item(buffer_title, buffer_id, annoy_index, product_ids):
-        product_vectors = embed(
-            buffer_title
-        ).numpy()  # Ref: https://github.com/spotify/annoy/issues/498
-        for product_id, product_vector in zip(buffer_id, product_vectors):
-            annoy_index.add_item(len(product_ids), product_vector)
-            product_ids.append(product_id)
-        del buffer_title[:]
-        del buffer_id[:]
-
+    batch_annoy_index_builder = BatchAnnoyIndexBuilder(METRIC, N_TREES)
     for product_id, product_title in zip(
         products_us["product_id"], products_us["product_title"]
     ):
-        buffer_id.append(product_id)
-        buffer_title.append(product_title)
-        if batch_size < len(buffer_id):
-            batch_add_item(buffer_title, buffer_id, annoy_index, product_ids)
-    if 0 < len(buffer_id):
-        batch_add_item(buffer_title, buffer_id, annoy_index, product_ids)
-    annoy_index.build(10)
-    for query, query_vector in zip(queries, query_vectors):
-        print(query)
-        for i, distance in zip(
-            *annoy_index.get_nns_by_vector(query_vector, 10, include_distances=True)
-        ):
-            product_id = product_ids[i]
-            print(distance, product_id, products_us.at[product_id, "product_title"])
+        batch_annoy_index_builder.add(product_id, product_title)
+    annoy_index, product_ids = batch_annoy_index_builder.build()
+
+    approx_rankings = []
+    for query, query_vector in zip(QUERIES, QUERY_VECTORS):
+        approx_ranking = []
+        indices, distances = annoy_index.get_nns_by_vector(
+            query_vector, K, include_distances=True
+        )
+        assert len(indices) == len(distances)
+        for index, distance in zip(indices, distances):
+            product_id = product_ids[index]
+            approx_ranking.append((distance, product_id))
+        approx_rankings.append(approx_ranking)
+    print_rankings(approx_rankings)
+
+
+# 4.
+N_CENTROIDS = int(len(products_us) ** 0.5)
 
 
 def test_4():
-    global annoy_index
-    df_centroids, annoy_index = products_us.sample(1000, random_state=0), AnnoyIndex(
-        512, "euclidean"
-    )
-    for centroid_id, centroid_vector in enumerate(
-        embed(df_centroids["product_title"]).numpy()
+    centroids = products_us.sample(N_CENTROIDS, random_state=0)
+    batch_annoy_index_builder = BatchAnnoyIndexBuilder(METRIC, N_TREES)
+    for product_id, product_title in zip(
+        centroids["product_id"], centroids["product_title"]
     ):
-        annoy_index.add_item(centroid_id, centroid_vector)
-    annoy_index.build(10)
+        batch_annoy_index_builder.add(product_id, product_title)
+
+    global annoy_index
+    annoy_index, _ = batch_annoy_index_builder.build()
 
 
-def test_5():
-    global inverted_index_centroid_id
-    inverted_index_centroid_id = {}
-
-    def batch_index(buffer_title, buffer_id, annoy_index, inverted_index_centroid_id):
-        product_vectors = embed(buffer_title).numpy()
-        for product_id, product_vector in zip(buffer_id, product_vectors):
-            for centroid_id in annoy_index.get_nns_by_vector(product_vector, 1):
-                if centroid_id in inverted_index_centroid_id:
-                    inverted_index_centroid_id[centroid_id].append(product_id)
-                else:
-                    inverted_index_centroid_id[centroid_id] = [product_id]
-        del buffer_title[:]
-        del buffer_id[:]
-
-    products_us.sort_index(inplace=True)
+def answer_5(annoy_index, n_closest):
+    annoy_filter = annoy_filter_factory(annoy_index, n_closest)
+    ann_inverted_index_builder = ANNInvertedIndexBuilder(annoy_filter)
     for product_id, product_title in zip(
         products_us["product_id"], products_us["product_title"]
     ):
-        buffer_id.append(product_id)
-        buffer_title.append(product_title)
-        if batch_size < len(buffer_id):
-            batch_index(
-                buffer_title, buffer_id, annoy_index, inverted_index_centroid_id
-            )
-    if 0 < len(buffer_id):
-        batch_index(buffer_title, buffer_id, annoy_index, inverted_index_centroid_id)
+        ann_inverted_index_builder.add(product_id, product_title)
+    return ann_inverted_index_builder.build()
+
+
+def test_5():
+    global inverted_index_title
+    inverted_index_title = answer_5(annoy_index, 1)
+
+
+def answer_6(inverted_index, n_closest):
+    start, approx_rankings = time(), []
+    for query, query_vector in zip(QUERIES, QUERY_VECTORS):
+        iterator = None
+        for index in annoy_index.get_nns_by_vector(query_vector, n_closest):
+            if iterator is None:
+                iterator = inverted_index.iter(index)
+            else:
+                iterator = boolean_or(iterator, inverted_index.iter(index))
+        assert iterator is not None
+
+        ranking_builder = BatchRankingBuilder([query], [K])
+        for product_id in iterator:
+            product_title = products_us.at[product_id, "product_title"]
+            ranking_builder.add(product_id, product_title)
+        approx_ranking = ranking_builder.build()[0]
+        approx_rankings.append(approx_ranking)
+    print("Elapsed Time: {0} (s)".format(time() - start))
+    return approx_rankings
 
 
 def test_6():
     print("6.")
     global approx_rankings
-    global buffer_id
-    approx_rankings = []  # For 7.
-    for query, query_vector in zip(queries, query_vectors):
+    approx_rankings = answer_6(inverted_index_title, 1)
+    print_rankings(approx_rankings)
+
+
+def answer_7(rankings_i, rankings_j):
+    assert len(QUERIES) == len(rankings_i) == len(rankings_j)
+    for query, ranking_i, ranking_j in zip(QUERIES, rankings_i, rankings_j):
         print(query)
-        priority_queue = PriorityQueue(10)
-        approx_rankings.append([])
-        for centroid_id in annoy_index.get_nns_by_vector(query_vector, 1):
-            buffer_id += inverted_index_centroid_id[centroid_id]
-            for product_id in buffer_id:
-                buffer_title.append(products_us.at[product_id, "product_title"])
-            batch_push(buffer_title, buffer_id, [query_vector], [priority_queue])
-        while 0 < len(priority_queue.body):
-            priority, product_id = priority_queue.pop()
-            print(priority, product_id, products_us.at[product_id, "product_title"])
-            approx_rankings[-1].append(product_id)
+        print(len(set(ranking_i) & set(ranking_j)) / len(ranking_j))
 
 
 def test_7():
     print("7.")
-    for query, exact_ranking, approx_ranking in zip(
-        queries, exact_rankings, approx_rankings
-    ):
-        print(query)
-        print(len(set(exact_ranking) & set(approx_ranking)) / len(exact_ranking))
+    answer_7(exact_rankings, approx_rankings)
+
+
+def test_8():
+    print("8.")
+    for n_closest in (5, 25):
+        inverted_index_title = answer_5(annoy_index, n_closest)
+        approx_rankings = answer_6(inverted_index_title, n_closest)
+        answer_7(exact_rankings, approx_rankings)
+
+
+def test_9():
+    field_vectors = use_batch_tokenizer(products_us["product_title"])
+    kmeans = KMeans(n_clusters=N_CENTROIDS, random_state=0).fit(field_vectors)
+    centroids = kmeans.cluster_centers_
+
+    batch_annoy_index_builder = BatchAnnoyIndexBuilder(
+        METRIC, N_TREES, batch_tokenizer=as_is_batch_tokenizer
+    )
+    for index, centroid in enumerate(centroids):
+        batch_annoy_index_builder.add(index, centroid)
+    annoy_index, _ = batch_annoy_index_builder.build()
+
+    inverted_index_title = answer_5(annoy_index, 5)
+    approx_rankings = answer_6(inverted_index_title, 5)
+    answer_7(exact_rankings, approx_rankings)
