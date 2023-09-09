@@ -10,9 +10,16 @@ from .subjects import sampled_products_us as products_us  # For quick testing
 import json
 
 
+def commit(verbose=True):
+    response = get("http://127.0.0.1:8080/commit")
+    if verbose:
+        print(response.text)
+
+
 def delete(product_id):
     response = get("http://127.0.0.1:8080/delete", params={"product_id": product_id})
     print(response.text)
+    commit()
 
 
 def optimize():
@@ -35,6 +42,7 @@ def update(json_object, verbose=True):
     response = post("http://127.0.0.1:8080/update", data=json.dumps(json_object))
     if verbose:
         print(response.text)
+    commit(verbose)
 
 
 class TestSearchEngine(object):
