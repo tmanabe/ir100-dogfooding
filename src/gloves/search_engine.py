@@ -7,6 +7,8 @@ from http.server import HTTPServer
 from gloves.iterator import boolean_or
 from gloves.nlp import whitespace_tokenizer
 from gloves.priority_queue import PriorityQueue
+from requests import get
+from requests import post
 from socketserver import ThreadingMixIn
 from tempfile import TemporaryFile
 from urllib.parse import parse_qs
@@ -115,11 +117,16 @@ class SearchEngine(BaseHTTPRequestHandler):
             fcntl.flock(SearchEngine.lockfile, fcntl.LOCK_EX)
 
     @classmethod
-    def init(cls, host, port):
-        cls.lockfile = TemporaryFile()
+    def truncate(cls):
         cls.segment_builder = SegmentBuilder()
         cls.segments = []
         cls.live_ids_cache = []
+
+    @classmethod
+    def init(cls, host, port):
+        cls.lockfile = TemporaryFile()
+        with cls.WriteLock():
+            cls.truncate()
         return ThreadedHTTPServer((host, port), cls)
 
     def do_POST(self):
@@ -204,6 +211,26 @@ class SearchEngine(BaseHTTPRequestHandler):
                 if 0 == query_hash % 100:
                     result["success"].append(query)
 
+        # Cf. 9.8
+        elif self.path.startswith("/replicate"):
+            assert 1 == len(parameters["to"])
+            to = parameters["to"][0]
+            with SearchEngine.ReadLock():
+                result["success"] = []
+                for segment in SearchEngine.segments:
+                    contents = []
+                    for product_id in segment.live_ids:
+                        contents.append(
+                            {
+                                "product_id": product_id,
+                                "product_title": segment.info_title[product_id],
+                            }
+                        )
+                    result["success"].append(
+                        post(to + "update", data=json.dumps(contents)).text
+                    )
+                    result["success"].append(get(to + "commit").text)
+
         elif self.path.startswith("/select"):
             with SearchEngine.ReadLock():
                 segments, priority_queue, ranking = (
@@ -230,10 +257,46 @@ class SearchEngine(BaseHTTPRequestHandler):
                         ].info_title[product_id]
                 result["success"] = ranking
 
+        # Cf. 9.9
+        elif self.path.startswith("/split"):
+            assert (
+                1 == len(parameters["to"])
+                and 1 == len(parameters["denominator"])
+                and 1 == len(parameters["surplus"])
+            )
+            to, denominator, surplus = (
+                parameters["to"][0],
+                int(parameters["denominator"][0]),
+                int(parameters["surplus"][0]),
+            )
+            with SearchEngine.WriteLock():
+                result["success"] = []
+                assert len(SearchEngine.segments) == len(SearchEngine.live_ids_cache)
+                for segment, live_ids in zip(
+                    SearchEngine.segments, SearchEngine.live_ids_cache
+                ):
+                    contents, to_delete = [], set()
+                    for product_id in segment.live_ids:
+                        product_hash = int(
+                            md5(product_id.encode("utf-8")).hexdigest(), 16
+                        )
+                        if product_hash % denominator == surplus:
+                            contents.append(
+                                {
+                                    "product_id": product_id,
+                                    "product_title": segment.info_title[product_id],
+                                }
+                            )
+                            to_delete.add(product_id)
+                    result["success"].append(
+                        post(to + "update", data=json.dumps(contents)).text
+                    )
+                    result["success"].append(get(to + "commit").text)
+                    live_ids -= to_delete
+
         elif self.path.startswith("/truncate"):
             with SearchEngine.WriteLock():
-                SearchEngine.segments = []
-                SearchEngine.live_ids_cache = []
+                SearchEngine.truncate()
             result["success"] = "truncated"
 
         else:

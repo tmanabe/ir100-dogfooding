@@ -4,4 +4,4 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gloves"
-version = "0.9.8"
+version = "1.0.0"

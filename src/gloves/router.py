@@ -23,12 +23,23 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
 
 class Router(BaseHTTPRequestHandler):
     @classmethod
+    def reset_port_matrix(cls):
+        port, cls.port_matrix = cls.port, []
+        for _ in range(cls.shards):
+            ports = []
+            for _ in range(cls.replicas):
+                port += 1
+                ports.append(port)
+            cls.port_matrix.append(ports)
+
+    @classmethod
     def init(cls, host, port, replicas, shards):
         cls.host = host
         cls.port = port
         cls.replicas = replicas
         cls.shards = shards
-        cls.tpe_for_replicas = ThreadPoolExecutor(replicas)
+        cls.reset_port_matrix()
+        cls.tpe_for_select = ThreadPoolExecutor(replicas)
         return ThreadedHTTPServer((host, port), cls)
 
     def do_POST(self):
@@ -51,19 +62,19 @@ class Router(BaseHTTPRequestHandler):
 
             with ThreadPoolExecutor(
                 max_workers=Router.shards * Router.replicas
-            ) as tpe_for_replicas_shards:
+            ) as tpe_for_update:
 
                 def fn(url, contents):
                     return {url: json.loads(post(url, data=json.dumps(contents)).text)}
 
-                port, fs = Router.port, []
-                for sharded_contents in sharded_contents_list:
-                    for _ in range(Router.replicas):
-                        port += 1
+                fs = []
+                assert len(Router.port_matrix) == len(sharded_contents_list)
+                for ports, sharded_contents in zip(
+                    Router.port_matrix, sharded_contents_list
+                ):
+                    for port in ports:
                         url = "http://{0}:{1}/update".format(Router.host, port)
-                        fs.append(
-                            tpe_for_replicas_shards.submit(fn, url, sharded_contents)
-                        )
+                        fs.append(tpe_for_update.submit(fn, url, sharded_contents))
                 result["success"] = {}
                 for f in as_completed(fs):
                     result["success"].update(f.result())
@@ -76,13 +87,42 @@ class Router(BaseHTTPRequestHandler):
     def do_GET(self):
         response, result, parameters = 200, {}, parse_qs(urlparse(self.path).query)
 
-        if self.path.startswith("/queries"):
-            port, queries = Router.port + 1, set()
-            for _ in range(Router.shards):
-                url = "http://{0}:{1}/queries".format(Router.host, port)
+        if self.path.startswith("/commit"):
+            with ThreadPoolExecutor(
+                max_workers=Router.shards * Router.replicas
+            ) as tpe_for_update:
+
+                def fn(url):
+                    return {url: json.loads(get(url).text)}
+
+                fs = []
+                for ports in Router.port_matrix:
+                    for port in ports:
+                        url = "http://{0}:{1}/commit".format(Router.host, port)
+                        fs.append(tpe_for_update.submit(fn, url))
+                result["success"] = {}
+                for f in as_completed(fs):
+                    result["success"].update(f.result())
+
+        elif self.path.startswith("/queries"):
+            queries = set()
+            for ports in Router.port_matrix:
+                url = "http://{0}:{1}/queries".format(Router.host, ports[0])
                 queries |= set(json.loads(get(url).text)["success"])
-                port += Router.replicas
             result["success"] = sorted(queries)
+
+        # 9.8
+        elif self.path.startswith("/replicate"):
+            port_to = Router.port + Router.shards * Router.replicas
+            result["success"] = []
+            for ports in Router.port_matrix:
+                port_from, port_to = ports[0], port_to + 1
+                url_from = "http://{0}:{1}/".format(Router.host, port_from)
+                url_to = "http://{0}:{1}/".format(Router.host, port_to)
+                text = get(url_from + "replicate", params={"to": url_to}).text
+                result["success"].append(json.loads(text)["success"])
+                ports.append(port_to)
+            Router.replicas += 1
 
         # 9.3, 9.7
         elif self.path.startswith("/select"):
@@ -94,12 +134,7 @@ class Router(BaseHTTPRequestHandler):
                 with ThreadPoolExecutor(max_workers=Router.shards) as tpe_for_shards:
 
                     def fn(query, shard_index, replica_index):
-                        port = (
-                            Router.port
-                            + 1
-                            + shard_index * Router.replicas
-                            + replica_index
-                        )
+                        port = Router.port_matrix[shard_index][replica_index]
                         url = "http://{0}:{1}/select".format(Router.host, port)
                         return json.loads(get(url, params={"query": query}).text)[
                             "success"
@@ -116,7 +151,7 @@ class Router(BaseHTTPRequestHandler):
 
             assert 1 == len(parameters["query"])
             priority_queue, query = PriorityQueue(10), parameters["query"][0]
-            for partial_result in Router.tpe_for_replicas.submit(fn, query).result():
+            for partial_result in Router.tpe_for_select.submit(fn, query).result():
                 for product in partial_result:
                     priority_queue.push(
                         (product["_priority"], product["product_id"], product)
@@ -126,11 +161,36 @@ class Router(BaseHTTPRequestHandler):
                 _, _, product = priority_queue.pop()
                 result["success"].append(product)
 
+        # 9.8
+        elif self.path.startswith("/split"):
+            # md5 % 2 in {0, 1} -> md5 % 4 in {0, 1, 2, 3}
+            denominator_from, denominator_to = Router.shards, 2 * Router.shards
+            port_to = Router.port + Router.shards * Router.replicas
+            result["success"] = []
+            for surplus_from, ports_from in enumerate(Router.port_matrix.copy()):
+                surplus_to = denominator_from + surplus_from
+                results, ports_to = [], []
+                for port_from in ports_from:
+                    port_to += 1
+                    url_from = "http://{0}:{1}/".format(Router.host, port_from)
+                    url_to = "http://{0}:{1}/".format(Router.host, port_to)
+                    text = get(
+                        url_from + "split",
+                        params={
+                            "to": url_to,
+                            "denominator": str(denominator_to),
+                            "surplus": str(surplus_to),
+                        },
+                    ).text
+                    results.append(json.loads(text)["success"])
+                    ports_to.append(port_to)
+                Router.port_matrix.append(ports_to)
+            Router.shards *= 2
+
         elif self.path.startswith("/truncate"):
             port, result["success"] = Router.port, {}
-            for _ in range(Router.shards):
-                for _ in range(Router.replicas):
-                    port += 1
+            for ports in Router.port_matrix:
+                for port in ports:
                     url = "http://{0}:{1}/truncate".format(Router.host, port)
                     result["success"][url] = json.loads(get(url).text)
             if "new_replicas" in parameters:
@@ -138,12 +198,13 @@ class Router(BaseHTTPRequestHandler):
                 new_replicas = int(parameters["new_replicas"][0])
                 assert 0 < new_replicas
                 Router.replicas = new_replicas
-                Router.tpe_for_replicas = ThreadPoolExecutor(new_replicas)
+                Router.tpe_for_select = ThreadPoolExecutor(new_replicas)
             if "new_shards" in parameters:
                 assert 1 == len(parameters["new_shards"])
                 new_shards = int(parameters["new_shards"][0])
                 assert 0 < new_shards
                 Router.shards = new_shards
+            Router.reset_port_matrix()
 
         # 9.5
         elif self.path.startswith("/two_stage_select"):
@@ -155,12 +216,7 @@ class Router(BaseHTTPRequestHandler):
                 with ThreadPoolExecutor(max_workers=Router.shards) as tpe_for_shards:
 
                     def fn(query, shard_index, replica_index):
-                        port = (
-                            Router.port
-                            + 1
-                            + shard_index * Router.replicas
-                            + replica_index
-                        )
+                        port = Router.port_matrix[shard_index][replica_index]
                         url = "http://{0}:{1}/select".format(Router.host, port)
                         params = {"omit_detail": "y", "query": query}
                         return {
@@ -183,12 +239,7 @@ class Router(BaseHTTPRequestHandler):
                 with ThreadPoolExecutor(max_workers=Router.shards) as tpe_for_shards:
 
                     def fn(shard_index, product_ids):
-                        port = (
-                            Router.port
-                            + 1
-                            + shard_index * Router.replicas
-                            + replica_index
-                        )
+                        port = Router.port_matrix[shard_index][replica_index]
                         url = "http://{0}:{1}/fetch".format(Router.host, port)
                         product_titles = json.loads(
                             get(url, params={"product_id": product_ids}).text
@@ -204,8 +255,8 @@ class Router(BaseHTTPRequestHandler):
 
             assert 1 == len(parameters["query"])
             priority_queue, query = PriorityQueue(10), parameters["query"][0]
-            for shard_index, partial_result in (
-                Router.tpe_for_replicas.submit(fn_select, query).result().items()
+            for surplus_from, partial_result in (
+                Router.tpe_for_select.submit(fn_select, query).result().items()
             ):
                 for product in partial_result:
                     assert "product_title" not in product
@@ -214,18 +265,18 @@ class Router(BaseHTTPRequestHandler):
                             product["_priority"],
                             product["product_id"],
                             product,
-                            shard_index,
+                            surplus_from,
                         )
                     )
             ranking, shard_index_to_product_ids = [], {}
             while 0 < len(priority_queue.body):
-                _, product_id, product, shard_index = priority_queue.pop()
+                _, product_id, product, surplus_from = priority_queue.pop()
                 ranking.append(product)
-                if shard_index in shard_index_to_product_ids:
-                    shard_index_to_product_ids[shard_index].append(product_id)
+                if surplus_from in shard_index_to_product_ids:
+                    shard_index_to_product_ids[surplus_from].append(product_id)
                 else:
-                    shard_index_to_product_ids[shard_index] = [product_id]
-            product_id_to_title = Router.tpe_for_replicas.submit(
+                    shard_index_to_product_ids[surplus_from] = [product_id]
+            product_id_to_title = Router.tpe_for_select.submit(
                 fn_fetch, shard_index_to_product_ids
             ).result()
             for product in ranking:

@@ -12,9 +12,21 @@ from .subjects import sampled_products_us as products_us  # For quick testing
 import json
 
 
+def commit():
+    get("http://127.0.0.1:8080/commit")
+
+
 def queries():
     response = get("http://127.0.0.1:8080/queries")
     return json.loads(response.text)["success"]
+
+
+def replicate():
+    get("http://127.0.0.1:8080/replicate")
+
+
+def split():
+    get("http://127.0.0.1:8080/split")
 
 
 def truncate(params={}):
@@ -40,7 +52,7 @@ class TestRouter(object):
         cls.thread = Thread(target=cls.router.serve_forever)
         cls.thread.start()
 
-    def answer8_5(self):
+    def answer_8_5(self):
         for _ in range(2):
             buffer, start = [], time()
             for i, (product_id, product_title) in enumerate(
@@ -54,6 +66,7 @@ class TestRouter(object):
                     buffer = []
             if 0 < len(buffer):
                 update(buffer)
+            commit()
             print("Elapsed Time: {0} (s)".format(time() - start))
 
     def test_2(self):
@@ -62,9 +75,9 @@ class TestRouter(object):
 
         print("2.")
         truncate({"new_replicas": "1", "new_shards": "2"})
-        self.answer8_5()
+        self.answer_8_5()
 
-    def answer8_6(self, max_workers):
+    def answer_8_6(self, max_workers):
         def fn(query):
             get("http://127.0.0.1:8080/select", params={"query": query})
 
@@ -76,7 +89,7 @@ class TestRouter(object):
 
     def test_4(self):
         print("4.")
-        self.answer8_6(1)
+        self.answer_8_6(1)
 
     def test_5(self):
         print("5.")
@@ -88,11 +101,24 @@ class TestRouter(object):
     def test_6(self):
         print("6.")
         truncate({"new_replicas": "2", "new_shards": "2"})
-        self.answer8_5()
+        self.answer_8_5()
 
     def test_7(self):
         print("7")
-        self.answer8_6(2)
+        self.answer_8_6(2)
+
+    def test_8(self):
+        truncate({"new_replicas": "1", "new_shards": "1"})
+        self.answer_8_5()
+        replicate()
+        self.answer_8_6(2)
+
+    def test_9(self):
+        truncate({"new_replicas": "1", "new_shards": "1"})
+        self.answer_8_5()
+        split()
+        commit()
+        self.answer_8_6(2)
 
     @classmethod
     def teardown_class(cls):

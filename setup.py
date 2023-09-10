@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name="gloves",
-    version="0.9.8",
+    version="1.0.0",
     extras_require={
         "test": [
             "pytest",

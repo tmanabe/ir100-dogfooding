@@ -22,8 +22,3 @@ git clone git@github.com:amazon-science/esci-data.git
 pip install tox
 tox
 ```
-
-## TODO
-9.
-- 9.8
-- 9.9
