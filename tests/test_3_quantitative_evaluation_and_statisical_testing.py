@@ -28,12 +28,8 @@ def test_1():
         return [calc_tf(*pair) for pair in zip(queries, product_titles)]
 
     global improved_rankings
-    improved_rankings = merged_us.assign(
-        tf=batch_tf(merged_us["query"], merged_us["product_title"])
-    )
-    improved_rankings.sort_values(
-        ["query_id", "tf", "product_id"], ascending=[True, False, True], inplace=True
-    )
+    improved_rankings = merged_us.assign(tf=batch_tf(merged_us["query"], merged_us["product_title"]))
+    improved_rankings.sort_values(["query_id", "tf", "product_id"], ascending=[True, False, True], inplace=True)
 
 
 def test_2():
@@ -107,12 +103,8 @@ def test_4():
 
 
 def test_5():
-    ideal_rankings = merged_us.assign(
-        gain=[ESCI_LABEL_TO_GAIN[esci_label] for esci_label in merged_us["esci_label"]]
-    )
-    ideal_rankings.sort_values(
-        ["query_id", "gain", "product_id"], ascending=[True, False, True], inplace=True
-    )
+    ideal_rankings = merged_us.assign(gain=[ESCI_LABEL_TO_GAIN[esci_label] for esci_label in merged_us["esci_label"]])
+    ideal_rankings.sort_values(["query_id", "gain", "product_id"], ascending=[True, False, True], inplace=True)
     global ideal_dcgs
     ideal_dcgs = calc_dcgs_at(10, ideal_rankings)
 
@@ -175,8 +167,7 @@ def test_8():
 
     def batch_tfidf(queries, product_titles, idfs, default_idf):
         return [
-            calc_tfidf(query, product_title, idfs, default_idf)
-            for query, product_title in zip(queries, product_titles)
+            calc_tfidf(query, product_title, idfs, default_idf) for query, product_title in zip(queries, product_titles)
         ]
 
     def bonferroni_correct(p, m):
@@ -185,13 +176,9 @@ def test_8():
     idfs, default_idf = batch_idf(products_us["product_title"])
     global re_improved_rankings
     re_improved_rankings = merged_us.assign(
-        tfidf=batch_tfidf(
-            merged_us["query"], merged_us["product_title"], idfs, default_idf
-        )
+        tfidf=batch_tfidf(merged_us["query"], merged_us["product_title"], idfs, default_idf)
     )
-    re_improved_rankings.sort_values(
-        ["query_id", "tfidf", "product_id"], ascending=[True, False, True], inplace=True
-    )
+    re_improved_rankings.sort_values(["query_id", "tfidf", "product_id"], ascending=[True, False, True], inplace=True)
 
     print("8.")
     re_improved_dcgs = calc_dcgs_at(10, re_improved_rankings)
@@ -199,17 +186,11 @@ def test_8():
     print(f"Re-improved: {sum(re_improved_ndcgs) / len(re_improved_ndcgs)}")
 
     result = ttest_rel(improved_ndcgs, baseline_ndcgs)
-    print(
-        f"Improved    vs. Baseline: {result} -> {bonferroni_correct(result.pvalue, 3)}"
-    )
+    print(f"Improved    vs. Baseline: {result} -> {bonferroni_correct(result.pvalue, 3)}")
     result = ttest_rel(re_improved_ndcgs, baseline_ndcgs)
-    print(
-        f"Re-improved vs. Baseline: {result} -> {bonferroni_correct(result.pvalue, 3)}"
-    )
+    print(f"Re-improved vs. Baseline: {result} -> {bonferroni_correct(result.pvalue, 3)}")
     result = ttest_rel(re_improved_ndcgs, improved_ndcgs)
-    print(
-        f"Re-improved vs. Improved: {result} -> {bonferroni_correct(result.pvalue, 3)}"
-    )
+    print(f"Re-improved vs. Improved: {result} -> {bonferroni_correct(result.pvalue, 3)}")
 
 
 def test_9():

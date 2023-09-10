@@ -94,12 +94,8 @@ class TestSearchEngine(object):
         print("5.")
         for _ in range(2):
             buffer, start = [], time()
-            for product_id, product_title in zip(
-                products_us["product_id"], products_us["product_title"]
-            ):
-                buffer.append(
-                    {"product_id": product_id, "product_title": product_title}
-                )
+            for product_id, product_title in zip(products_us["product_id"], products_us["product_title"]):
+                buffer.append({"product_id": product_id, "product_title": product_title})
                 if post_size <= len(buffer):
                     update(buffer, verbose=False)
                     buffer = []

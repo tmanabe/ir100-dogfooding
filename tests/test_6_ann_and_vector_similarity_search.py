@@ -54,9 +54,7 @@ def print_rankings(rankings):
 def test_2():
     print("2.")
     batch_ranking_builder = BatchRankingBuilder(QUERIES, len(QUERIES) * [K])
-    for product_id, product_title in zip(
-        products_us["product_id"], products_us["product_title"]
-    ):
+    for product_id, product_title in zip(products_us["product_id"], products_us["product_title"]):
         batch_ranking_builder.add(product_id, product_title)
 
     global exact_rankings  # For 7.
@@ -72,18 +70,14 @@ N_TREES = 10
 def test_3():
     print("3.")
     batch_annoy_index_builder = BatchAnnoyIndexBuilder(METRIC, N_TREES)
-    for product_id, product_title in zip(
-        products_us["product_id"], products_us["product_title"]
-    ):
+    for product_id, product_title in zip(products_us["product_id"], products_us["product_title"]):
         batch_annoy_index_builder.add(product_id, product_title)
     annoy_index, product_ids = batch_annoy_index_builder.build()
 
     approx_rankings = []
     for query, query_vector in zip(QUERIES, QUERY_VECTORS):
         approx_ranking = []
-        indices, distances = annoy_index.get_nns_by_vector(
-            query_vector, K, include_distances=True
-        )
+        indices, distances = annoy_index.get_nns_by_vector(query_vector, K, include_distances=True)
         assert len(indices) == len(distances)
         for index, distance in zip(indices, distances):
             product_id = product_ids[index]
@@ -99,9 +93,7 @@ N_CENTROIDS = int(len(products_us) ** 0.5)
 def test_4():
     centroids = products_us.sample(N_CENTROIDS, random_state=0)
     batch_annoy_index_builder = BatchAnnoyIndexBuilder(METRIC, N_TREES)
-    for product_id, product_title in zip(
-        centroids["product_id"], centroids["product_title"]
-    ):
+    for product_id, product_title in zip(centroids["product_id"], centroids["product_title"]):
         batch_annoy_index_builder.add(product_id, product_title)
 
     global annoy_index
@@ -111,9 +103,7 @@ def test_4():
 def answer_5(annoy_index, n_closest):
     annoy_filter = annoy_filter_factory(annoy_index, n_closest)
     ann_inverted_index_builder = ANNInvertedIndexBuilder(annoy_filter)
-    for product_id, product_title in zip(
-        products_us["product_id"], products_us["product_title"]
-    ):
+    for product_id, product_title in zip(products_us["product_id"], products_us["product_title"]):
         ann_inverted_index_builder.add(product_id, product_title)
     return ann_inverted_index_builder.build()
 
@@ -176,9 +166,7 @@ def test_9():
     kmeans = KMeans(n_clusters=N_CENTROIDS, random_state=0).fit(field_vectors)
     centroids = kmeans.cluster_centers_
 
-    batch_annoy_index_builder = BatchAnnoyIndexBuilder(
-        METRIC, N_TREES, batch_tokenizer=as_is_batch_tokenizer
-    )
+    batch_annoy_index_builder = BatchAnnoyIndexBuilder(METRIC, N_TREES, batch_tokenizer=as_is_batch_tokenizer)
     for index, centroid in enumerate(centroids):
         batch_annoy_index_builder.add(index, centroid)
     annoy_index, _ = batch_annoy_index_builder.build()

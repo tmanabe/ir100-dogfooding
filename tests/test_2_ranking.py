@@ -10,9 +10,7 @@ from .subjects import products_us
 def test_0():
     global inverted_index_title
     inverted_index_title = {}
-    for product_id, product_title in zip(
-        products_us["product_id"], products_us["product_title"]
-    ):
+    for product_id, product_title in zip(products_us["product_id"], products_us["product_title"]):
         counter = {}
         for word in whitespace_tokenizer(product_title):
             if word in counter:
@@ -38,9 +36,7 @@ def test_3():
         inverted_index_title["HDMI"],
         inverted_index_title["Cable"],
     )
-    for product_id, tf_hdmi, tf_cable in extended_boolean_or(
-        iter(posting_list_hdmi), iter(posting_list_cable)
-    ):
+    for product_id, tf_hdmi, tf_cable in extended_boolean_or(iter(posting_list_hdmi), iter(posting_list_cable)):
         priority_queue.push((tf_hdmi + tf_cable, product_id))
     indexed_products_us = products_us.set_index("product_id")
     print("3.")
@@ -56,12 +52,8 @@ def test_4():
         len(posting_list_hdmi),
         len(posting_list_cable),
     )
-    for product_id, tf_hdmi, tf_cable in extended_boolean_or(
-        iter(posting_list_hdmi), iter(posting_list_cable)
-    ):
-        priority_queue.push(
-            (tf_hdmi * idf(N, df_hdmi) + tf_cable * idf(N, df_cable), product_id)
-        )
+    for product_id, tf_hdmi, tf_cable in extended_boolean_or(iter(posting_list_hdmi), iter(posting_list_cable)):
+        priority_queue.push((tf_hdmi * idf(N, df_hdmi) + tf_cable * idf(N, df_cable), product_id))
     print("4.")
     while 0 < len(priority_queue.body):
         priority, product_id = priority_queue.pop()
@@ -71,9 +63,7 @@ def test_4():
 def test_5():
     global info_title, avg_length_title
     info_title, sum_length_title = {}, 0
-    for product_id, product_title in zip(
-        products_us["product_id"], products_us["product_title"]
-    ):
+    for product_id, product_title in zip(products_us["product_id"], products_us["product_title"]):
         length_title = len(list(whitespace_tokenizer(product_title)))
         info_title[product_id] = {"length": length_title}
         sum_length_title += length_title
@@ -83,17 +73,11 @@ def test_5():
 def test_6():
     global K1, B
     K1, B = 1.2, 0.75
-    for product_id, tf_hdmi, tf_cable in extended_boolean_or(
-        iter(posting_list_hdmi), iter(posting_list_cable)
-    ):
+    for product_id, tf_hdmi, tf_cable in extended_boolean_or(iter(posting_list_hdmi), iter(posting_list_cable)):
         length_title = info_title[product_id]["length"]
         bm25 = 0
-        bm25 += bm25_weight(tf_hdmi, K1, B, length_title, avg_length_title) * idf(
-            N, df_hdmi
-        )
-        bm25 += bm25_weight(tf_cable, K1, B, length_title, avg_length_title) * idf(
-            N, df_cable
-        )
+        bm25 += bm25_weight(tf_hdmi, K1, B, length_title, avg_length_title) * idf(N, df_hdmi)
+        bm25 += bm25_weight(tf_cable, K1, B, length_title, avg_length_title) * idf(N, df_cable)
         priority_queue.push((bm25, product_id))
     print("6.")
     while 0 < len(priority_queue.body):
@@ -102,23 +86,13 @@ def test_6():
 
 
 def answer7():
-    for product_id, tf_hdmi, tf_cable in extended_boolean_or(
-        iter(posting_list_hdmi), iter(posting_list_cable)
-    ):
+    for product_id, tf_hdmi, tf_cable in extended_boolean_or(iter(posting_list_hdmi), iter(posting_list_cable)):
         boost_title, length_title = 2.0, info_title[product_id]["length"]
-        weight_hdmi = bm25f_weight(
-            tf_hdmi, boost_title, B, length_title, avg_length_title
-        )
-        weight_cable = bm25f_weight(
-            tf_cable, boost_title, B, length_title, avg_length_title
-        )
-        tf_basics = (
-            "Amazon Basics" == indexed_products_us.at[product_id, "product_brand"]
-        )
+        weight_hdmi = bm25f_weight(tf_hdmi, boost_title, B, length_title, avg_length_title)
+        weight_cable = bm25f_weight(tf_cable, boost_title, B, length_title, avg_length_title)
+        tf_basics = "Amazon Basics" == indexed_products_us.at[product_id, "product_brand"]
         boost_brand, length_brand, avg_length_brand = 1.0, 1, 1
-        weight_basics = bm25f_weight(
-            tf_basics, boost_brand, B, length_brand, avg_length_brand
-        )
+        weight_basics = bm25f_weight(tf_basics, boost_brand, B, length_brand, avg_length_brand)
         bm25f = 0
         bm25f += weight_hdmi / (K1 + weight_hdmi) * idf(N, df_hdmi)
         bm25f += weight_cable / (K1 + weight_cable) * idf(N, df_cable)

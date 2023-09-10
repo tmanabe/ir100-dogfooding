@@ -20,9 +20,7 @@ def select(query, sort=None):
     if sort is None:
         response = get("http://127.0.0.1:8080/select", params={"query": query})
     else:
-        response = get(
-            "http://127.0.0.1:8080/select", params={"query": query, "sort": sort}
-        )
+        response = get("http://127.0.0.1:8080/select", params={"query": query, "sort": sort})
     print(response.text)
 
 
@@ -30,9 +28,7 @@ class TestUserInterface(object):
     @classmethod
     def setup_class(cls):
         builder = ExpandedVariableByteInvertedIndexBuilder(whitespace_tokenizer)
-        for product_id, product_title in zip(
-            products_us["product_id"], products_us["product_title"]
-        ):
+        for product_id, product_title in zip(products_us["product_id"], products_us["product_title"]):
             builder.add(product_id, product_title)
         inverted_index = builder.build()
 

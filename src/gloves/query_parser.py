@@ -24,11 +24,7 @@ class QueryParser(object):
     def merge_and(cls, input):
         i, output = 0, []
         while i < len(input):
-            if (
-                i + 1 < len(input)
-                and isinstance(input[i], Query)
-                and isinstance(input[i + 1], Query)
-            ):
+            if i + 1 < len(input) and isinstance(input[i], Query) and isinstance(input[i + 1], Query):
                 output.append(BooleanAndQuery(input[i], input[i + 1]))
                 i += 2
             else:
@@ -40,12 +36,7 @@ class QueryParser(object):
     def merge_phrase(cls, input):
         i, output = 0, []
         while i < len(input):
-            if (
-                i + 2 < len(input)
-                and input[i] == QUOTE
-                and isinstance(input[i + 1], Query)
-                and input[i + 2] == QUOTE
-            ):
+            if i + 2 < len(input) and input[i] == QUOTE and isinstance(input[i + 1], Query) and input[i + 2] == QUOTE:
                 output.append(PhraseQuery(input[i + 1]))
                 i += 3
             else:
@@ -74,12 +65,7 @@ class QueryParser(object):
     def merge_kakko_kokka(cls, input):
         i, output = 0, []
         while i < len(input):
-            if (
-                i + 2 < len(input)
-                and input[i] == KAKKO
-                and isinstance(input[i + 1], Query)
-                and input[i + 2] == KOKKA
-            ):
+            if i + 2 < len(input) and input[i] == KAKKO and isinstance(input[i + 1], Query) and input[i + 2] == KOKKA:
                 output.append(input[i + 1])
                 i += 3
             else:

@@ -78,9 +78,7 @@ class UserInterface(BaseHTTPRequestHandler):
                 products.append(
                     {
                         "product_id": product_id,
-                        "product_title": self.indexed_products_us.at[
-                            product_id, "product_title"
-                        ],
+                        "product_title": self.indexed_products_us.at[product_id, "product_title"],
                     }
                 )
             result["success"] = {
@@ -102,11 +100,7 @@ class UserInterface(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     argument_parser = ArgumentParser(description="runs a web UI")
-    argument_parser.add_argument(
-        "--host", default="127.0.0.1", help="host name", metavar="str", type=str
-    )
-    argument_parser.add_argument(
-        "--port", default=8080, help="port number", metavar="int", type=int
-    )
+    argument_parser.add_argument("--host", default="127.0.0.1", help="host name", metavar="str", type=str)
+    argument_parser.add_argument("--port", default=8080, help="port number", metavar="int", type=int)
     arg_dict = argument_parser.parse_args()
     UserInterface.init(arg_dict.host, arg_dict.port).serve_forever()

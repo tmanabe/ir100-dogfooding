@@ -25,10 +25,7 @@ def test_0():
     merged_us_test.sort_values(["query_id", "product_id"], inplace=True)
     global ideal_rankings
     ideal_rankings = merged_us_test.assign(
-        gain=[
-            ESCI_LABEL_TO_GAIN[esci_label]
-            for esci_label in merged_us_test["esci_label"]
-        ]
+        gain=[ESCI_LABEL_TO_GAIN[esci_label] for esci_label in merged_us_test["esci_label"]]
     ).sort_values(["query_id", "gain", "product_id"], ascending=[True, False, True])
 
 
@@ -96,9 +93,7 @@ def test_1():
                 features[name(field_name, feature, pooling)] = []
         features[name(field_name, "len")] = []
 
-        for query, field_value in zip(
-            dataframe["query"], dataframe[FIELD_NAMES[field_name]]
-        ):
+        for query, field_value in zip(dataframe["query"], dataframe[FIELD_NAMES[field_name]]):
             length, tfs = 0, {}
             if field_value is not None:
                 for word in whitespace_tokenizer(field_value):
@@ -108,14 +103,9 @@ def test_1():
                     else:
                         tfs[word] = 1
             tfs = [tfs.get(keyword, 0) for keyword in whitespace_tokenizer(query)]
-            idfs = [
-                idf(N, dfs.get(keyword, 0)) for keyword in whitespace_tokenizer(query)
-            ]
+            idfs = [idf(N, dfs.get(keyword, 0)) for keyword in whitespace_tokenizer(query)]
             tfidfs = [tf * idf_ for tf, idf_ in zip(tfs, idfs)]
-            bm25_weights = [
-                bm25_weight(tf, 1.2, 0.75, length, avg_len) * idf_
-                for tf, idf_ in zip(tfs, idfs)
-            ]
+            bm25_weights = [bm25_weight(tf, 1.2, 0.75, length, avg_len) * idf_ for tf, idf_ in zip(tfs, idfs)]
             for feature, data in {
                 "tf": tfs,
                 "tfidf": tfidfs,
@@ -127,13 +117,9 @@ def test_1():
         return features
 
     for field_name in FIELD_NAMES.keys():
-        N, avg_len, dfs = extract_dfs(
-            field_name, merged_us_train
-        )  # Share IDFs and avg_len from training data
+        N, avg_len, dfs = extract_dfs(field_name, merged_us_train)  # Share IDFs and avg_len from training data
         for dataframe in (merged_us_train, merged_us_test):
-            for column_name, data in extract_features(
-                field_name, dataframe, N, avg_len, dfs
-            ).items():
+            for column_name, data in extract_features(field_name, dataframe, N, avg_len, dfs).items():
                 dataframe[column_name] = data
 
 
@@ -165,9 +151,7 @@ def test_4():
     for logits in logistic_regression.predict_log_proba(merged_us_test[FEATURES]):
         relevant_logits.append(logits[relevant_class_index])
     merged_us_test["logit"] = relevant_logits
-    logit_rankings = merged_us_test.sort_values(
-        ["query_id", "logit", "product_id"], ascending=[True, False, True]
-    )
+    logit_rankings = merged_us_test.sort_values(["query_id", "logit", "product_id"], ascending=[True, False, True])
     logit_ndcgs = calc_ndcgs(
         calc_dcgs_at(10, logit_rankings),
         calc_dcgs_at(10, ideal_rankings),
@@ -178,9 +162,7 @@ def test_4():
 
 def eval_xgb_ranker(xgb_ranker, features):
     merged_us_test["xgb"] = xgb_ranker.predict(merged_us_test[features])
-    xgb_rankings = merged_us_test.sort_values(
-        ["query_id", "xgb", "product_id"], ascending=[True, False, True]
-    )
+    xgb_rankings = merged_us_test.sort_values(["query_id", "xgb", "product_id"], ascending=[True, False, True])
     xgb_ndcgs = calc_ndcgs(
         calc_dcgs_at(10, xgb_rankings),
         calc_dcgs_at(10, ideal_rankings),
@@ -318,9 +300,7 @@ def test_9():
     from sentence_transformers import SentenceTransformer
 
     model = SentenceTransformer("tmanabe/ir100-dogfooding-siamese", device="mps")
-    titles = model.encode(
-        merged_us_test["product_title"].tolist(), batch_size=16, show_progress_bar=True
-    )
+    titles = model.encode(merged_us_test["product_title"].tolist(), batch_size=16, show_progress_bar=True)
     queries = merged_us_test["query"].tolist()
     unique_queries = list(set(queries))
     unique_queries = {

@@ -22,9 +22,7 @@ def test_01():
 def test_02():
     global posting_list
     posting_list = []
-    for product_id, product_title in zip(
-        products_us["product_id"], products_us["product_title"]
-    ):
+    for product_id, product_title in zip(products_us["product_id"], products_us["product_title"]):
         if "Information" in whitespace_tokenizer(product_title):
             posting_list.append(product_id)
     print(posting_list)
@@ -34,9 +32,7 @@ def test_02():
 def test_03():
     global inverted_index_title
     builder = SimpleInvertedIndexBuilder(whitespace_tokenizer)
-    for product_id, product_title in zip(
-        products_us["product_id"], products_us["product_title"]
-    ):
+    for product_id, product_title in zip(products_us["product_id"], products_us["product_title"]):
         builder.add(product_id, product_title)
     inverted_index_title = builder.build()
     assert len(dictionary) == len(inverted_index_title)
@@ -113,9 +109,7 @@ def test_07():
 def test_08():
     global inverted_index_brand
     builder = SimpleInvertedIndexBuilder(as_is_tokenizer)
-    for product_id, product_brand in zip(
-        products_us["product_id"], products_us["product_brand"]
-    ):
+    for product_id, product_brand in zip(products_us["product_id"], products_us["product_brand"]):
         if product_brand is not None:
             builder.add(product_id, product_brand)
     inverted_index_brand = builder.build()
@@ -135,9 +129,7 @@ def test_10():
     from gloves.inverted_index import PrefixInvertedIndexBuilder
 
     builder = PrefixInvertedIndexBuilder(whitespace_tokenizer)
-    for product_id, product_title in zip(
-        products_us["product_id"], products_us["product_title"]
-    ):
+    for product_id, product_title in zip(products_us["product_id"], products_us["product_title"]):
         builder.add(product_id, product_title)
     inverted_index_title = builder.build()
     answer_05(inverted_index_title)
@@ -149,9 +141,7 @@ def test_11():
     from gloves.inverted_index import EncodeInvertedIndexBuilder
 
     builder = EncodeInvertedIndexBuilder(whitespace_tokenizer)
-    for product_id, product_title in zip(
-        products_us["product_id"], products_us["product_title"]
-    ):
+    for product_id, product_title in zip(products_us["product_id"], products_us["product_title"]):
         builder.add(product_id, product_title)
     inverted_index_title = builder.build()
     answer_05(inverted_index_title)
@@ -163,9 +153,7 @@ def test_12():
     from gloves.inverted_index import VariableByteInvertedIndexBuilder
 
     builder = VariableByteInvertedIndexBuilder(whitespace_tokenizer)
-    for product_id, product_title in zip(
-        products_us["product_id"], products_us["product_title"]
-    ):
+    for product_id, product_title in zip(products_us["product_id"], products_us["product_title"]):
         builder.add(product_id, product_title)
     inverted_index_title = builder.build()
     answer_05(inverted_index_title)

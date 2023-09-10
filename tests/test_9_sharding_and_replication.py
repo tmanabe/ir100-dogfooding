@@ -39,13 +39,8 @@ def update(json_object):
 
 class TestRouter(object):
     def setup_class(cls):
-        cls.search_engines = [
-            SearchEngine.init("127.0.0.1", port) for port in range(8081, 8085)
-        ]
-        cls.threads = [
-            Thread(target=search_engine.serve_forever)
-            for search_engine in cls.search_engines
-        ]
+        cls.search_engines = [SearchEngine.init("127.0.0.1", port) for port in range(8081, 8085)]
+        cls.threads = [Thread(target=search_engine.serve_forever) for search_engine in cls.search_engines]
         for thread in cls.threads:
             thread.start()
         cls.router = Router.init("127.0.0.1", 8080, 1, 2)
@@ -58,9 +53,7 @@ class TestRouter(object):
             for i, (product_id, product_title) in enumerate(
                 zip(products_us["product_id"], products_us["product_title"])
             ):
-                buffer.append(
-                    {"product_id": product_id, "product_title": product_title}
-                )
+                buffer.append({"product_id": product_id, "product_title": product_title})
                 if post_size <= len(buffer):
                     update(buffer)
                     buffer = []
