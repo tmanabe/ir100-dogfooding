@@ -2,7 +2,6 @@ from MeCab import Tagger
 from Stemmer import Stemmer
 from regex import compile
 from regex import split
-from uniseg.wordbreak import words
 
 
 def as_is_tokenizer(string):
@@ -42,11 +41,6 @@ def porter_stem_filter(iterator):
 # 7.4
 def unicode_punctuation_tokenizer(string):
     return iter(split(r"\p{P}+", string))
-
-
-# 7.5
-def unicode_text_segmentation_tokenizer(string):
-    return words(string)
 
 
 # 7.6
