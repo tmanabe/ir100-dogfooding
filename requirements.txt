@@ -25,7 +25,6 @@ tensorflow-macos
 # 7.
 pystemmer
 regex
-uniseg
 mecab-python3
 unidic-lite
 

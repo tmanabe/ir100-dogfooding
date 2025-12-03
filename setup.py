@@ -23,7 +23,6 @@ setuptools.setup(
         "tensorflow-macos",
         "pystemmer",
         "regex",
-        "uniseg",
         "mecab-python3",
         "unidic-lite",
         "requests",

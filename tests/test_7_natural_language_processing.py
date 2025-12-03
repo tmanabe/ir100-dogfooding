@@ -9,9 +9,9 @@ from gloves.nlp import mecab_tokenizer
 from gloves.nlp import porter_stem_filter
 from gloves.nlp import pos_filter
 from gloves.nlp import unicode_punctuation_tokenizer
-from gloves.nlp import unicode_text_segmentation_tokenizer
 from gloves.nlp import whitespace_tokenizer
 from time import time
+from transformers import AutoTokenizer
 from .subjects import products_jp
 from .subjects import products_us
 
@@ -62,13 +62,14 @@ def test_4():
 
 def test_5():
     print("5.")
+    bert_tokenizer = AutoTokenizer.from_pretrained('sentence-transformers/all-MiniLM-L6-v2')
     start = time()
     for product_description in products_us["product_description"]:
         if product_description is None:
             continue
-        for _ in unicode_text_segmentation_tokenizer(product_description):
+        for _ in bert_tokenizer.tokenize(product_description):
             pass
-    print("Elapsed Time: {0} (s)".format(time() - start))  # Possibly slow (~10 minutes)
+    print("Elapsed Time: {0} (s)".format(time() - start))  # Possibly slow (~3 minutes)
 
 
 def test_6():
